@@ -14,12 +14,11 @@ import qualified Data.Char as T
   in        { TokenIn }
   int       { TokenInt $$ }
   var       { TokenVar $$ }
+  boolean   { TokenBoolean $$ }
   if        { TokenIf }
   then      { TokenThen }
   else      { TokenElse }
   isZero    { TokenIsZero }
-  true      { TokenTrue }
-  false     { TokenFalse }
   and       { TokenBoolAnd }
   or        { TokenBoolOr }
   '='       { TokenEq }
@@ -27,64 +26,67 @@ import qualified Data.Char as T
   '-'       { TokenMinus }
   '*'       { TokenTimes }
   '/'       { TokenDiv }
+  not       { TokenNot }
   '('       { TokenOB }
   ')'       { TokenCB }
 
-%left or
-%left and
+%left and or
 %left '+' '-'
 %left '*' '/'
 
 %%
 
+
 Expr
-  : IntExpr                               { AST.IntExpr $1 }
-  | BoolExpr                              { AST.BoolExpr $1 }
-  | let var '=' Expr in Expr              { AST.LetExpr $2 $4 $6 }
-  -- | let var '=' IntExpr in IntExpr         { AST.LetInt $2 $4 $6 }
-  -- | let var '=' BoolExpr in BoolExpr       { AST.LetBool $2 $4 $6 }   
+  : Primary                               { AST.PrimaryExpr $1 }
+  | ArithExpr                             { AST.ArithExpr $1 }
+  | LetExpr                               { AST.LetExpr $1 }
+  | IfExpr                                { AST.IfExpr $1 }
+  | BinOp                                 { $1 }
+  | UnOp                                  { $1 }
 
-  -- | '-' '(' int ')'              { AST.Const $ AST.Num (- $3) }
+BinOp
+  : Expr and Expr                         { AST.BinOpExpr AST.And $1 $3 }
+  | Expr or Expr                          { AST.BinOpExpr AST.Or $1 $3 }
 
-IntExpr
-  : Term                                 { AST.Term $1 }
-  | if BoolExpr then IntExpr else IntExpr   { AST.IfIntExpr $2 $4 $6 }
+UnOp
+  : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
+  | isZero '(' Expr ')'                   { AST.UnOpExpr AST.IsZero $3 }
 
-Term
-  : Factor                               { AST.Factor $1 }
-  | Term '+' Factor                      { AST.Plus $1 $3 }
-  | Term '-' Factor                      { AST.Diff $1 $3 }
+LetExpr
+  : let var '=' Expr in Expr              { AST.Let $2 $4 $6 }
 
-Factor
-  : Primary                              { AST.Primary $1 }
-  | Factor '*' Primary                   { AST.Times $1 $3 }
-  | Factor '/' Primary                   { AST.Div $1 $3 }
+IfExpr
+  : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
+
+ArithExpr
+  : ArithTerm                             { AST.ArithTerm $1 }
+
+ArithTerm
+  : ArithFactor                           { AST.ArithFactor $1 }
+  | ArithTerm '+' ArithFactor             { AST.ArithTermOp AST.Plus $1 $3 }
+  | ArithTerm '-' ArithFactor             { AST.ArithTermOp AST.Minus $1 $3 }
+
+ArithFactor
+  : Primary                               { AST.Primary $1 }
+  | ArithFactor '*' Primary               { AST.ArithFactorOp AST.Times $1 $3 }
+  | ArithFactor '/' Primary               { AST.ArithFactorOp AST.Div $1 $3 }
 
 Primary
-  : int                                  { AST.Int $1 }
-  | var                                  { AST.IntVar $1 }
-  | '(' IntExpr ')'                       { AST.Expr $2 }
+  : Literal                               { AST.Literal $1 }
+  | '(' '-' ArithExpr ')'                 { AST.ArithUnOp AST.Negate $3 }
+  | Variable                              { AST.Variable $1 }
+  | '(' Expr ')'                          { AST.ParenExpr $2 }
 
-BoolExpr
-  : BoolTerm                             { AST.BoolTerm $1 }
-  | IfBoolExpr                            { AST.IfBoolExpr $1 }
+Literal
+  : int                                   { AST.IntLit $1 }
+  | boolean                               { AST.BoolLit $1 }
 
-IfBoolExpr
-  : if BoolExpr then BoolExpr else BoolExpr { AST.If $2 $4 $6 }
+Variable
+  : var                                   { AST.Var $1 }
 
-BoolTerm
-  : BoolFactor                           { AST.BoolFactor $1 }
-  | BoolTerm and BoolTerm                { AST.BoolBinOp AST.BoolAnd $1 $3 }
-  | BoolTerm or BoolTerm                 { AST.BoolBinOp AST.BoolOr $1 $3 }
-
-BoolFactor
-  : true                                 { AST.Bool True }
-  | false                                { AST.Bool False }
-  | var                                  { AST.BoolVar $1 }
-  | Predicate                            { AST.Predicate $1 }
-
-Predicate
-  : isZero IntExpr                        { AST.IsZero $2 }
+-- Predicate
+--   : isZero IntExpr                        { AST.IsZero $2 }
 
 {
 parseError :: [Token] -> a
@@ -95,6 +97,7 @@ data Token
   | TokenIn
   | TokenInt Int
   | TokenVar String
+  | TokenBoolean Bool
   | TokenEq
   | TokenPlus
   | TokenMinus
@@ -104,15 +107,14 @@ data Token
   | TokenThen
   | TokenElse
   | TokenIsZero
-  | TokenTrue
-  | TokenFalse
+  | TokenNot
   | TokenOB
   | TokenCB
   | TokenBoolAnd
   | TokenBoolOr
   deriving (Show)
 
-reservedOperators = ['=','+','-','*','/','(',')', '&', '|']
+reservedOperators = ['=','+','-','*','/','(',')', '&', '|', '!']
 
 reservedKeywords = [
   "let",
@@ -151,8 +153,8 @@ lexKeyword "in"     = TokenIn
 lexKeyword "if"     = TokenIf
 lexKeyword "then"   = TokenThen
 lexKeyword "else"   = TokenElse
-lexKeyword "true"   = TokenTrue
-lexKeyword "false"  = TokenFalse
+lexKeyword "true"   = TokenBoolean True
+lexKeyword "false"  = TokenBoolean False
 lexKeyword "isZero" = TokenIsZero
 lexKeyword (c:_)    = error $ "Unexpected keyword: " ++ [c]
 
@@ -162,6 +164,7 @@ lexOperator ('+':cs) = TokenPlus : lexer cs
 lexOperator ('-':cs) = TokenMinus : lexer cs
 lexOperator ('*':cs) = TokenTimes : lexer cs
 lexOperator ('/':cs) = TokenDiv : lexer cs
+lexOperator ('!':cs) = TokenNot : lexer cs
 lexOperator ('(':cs) = TokenOB : lexer cs
 lexOperator (')':cs) = TokenCB : lexer cs
 lexOperator ('&':'&':cs) = TokenBoolAnd : lexer cs

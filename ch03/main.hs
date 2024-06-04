@@ -1,7 +1,7 @@
 import System.Environment (getArgs)
 
 import Env (emptyEnv)
-import Evaluator (evalExpr)
+-- import Evaluator (evalExpr)
 import Parser (parseExpr)
 import qualified AST
 
@@ -13,7 +13,7 @@ main = do
       input <- readFile inputFilePath
       let parsed = parseExpr input
       print parsed
-      print $ evalExpr (emptyEnv ()) parsed
+      -- print $ evalExpr (emptyEnv ()) parsed
       -- handleResult $ evalExp parsed (emptyEnv ())
     _ -> putStrLn "Missing inputFilePath, expected as command-line argument"
 
