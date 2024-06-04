@@ -15,7 +15,6 @@ toBool :: Result -> Either String Bool
 toBool (RBool b) = Right b
 toBool exp = Left ("Can't convert expression to Bool: " ++ show exp)
 
-
 -- data Expr
 --   = LetInt String IntExpr IntExpr
 --   | LetBool String BoolExpr BoolExpr
@@ -25,21 +24,27 @@ toBool exp = Left ("Can't convert expression to Bool: " ++ show exp)
 evalExpr :: LetEnv -> Expr -> Either String Result
 evalExpr _ _ = error "not implemented"
 
+-- data Primary
+--   = Int Int
+--   | IntVar String
+--   | Expr IntExpr
+--   deriving (Show)
 evalPrimary :: LetEnv -> Primary -> Either String Result
 evalPrimary env (Int n) = Right (RInt n)
-evalPrimary env (Var var) =
+evalPrimary env (IntVar var) =
   maybe (Left $ "Unbound variable: " ++ var) (Right . RInt) (applyEnv env var)
 evalPrimary env (Expr exp) = evalExpr env exp
 
 evalFactor :: LetEnv -> Factor -> Either String Result
-evalFactor env (Times f p) = 
+evalFactor env (Times f p) =
   case (evalFactor env f, evalPrimary env p) of
     (Right factor, Right primary) ->
       either (Left . show) Right $ do
         f' <- toInt factor
         p' <- toInt primary
         return (f' * p')
-  -- error ""
+
+-- error ""
 
 -- evalExpr :: Expr -> LetEnv -> Either String ExprVal
 -- evalExpr (Const c) _ = Right c
