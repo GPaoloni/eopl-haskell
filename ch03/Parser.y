@@ -19,16 +19,22 @@ import qualified Data.Char as T
   then      { TokenThen }
   else      { TokenElse }
   isZero    { TokenIsZero }
+  minus     { TokenNegate }
+  not       { TokenNot }
   and       { TokenBoolAnd }
   or        { TokenBoolOr }
+  "=="      { TokenBoolEq }
+  '>'       { TokenBoolGt }
+  '<'       { TokenBoolLt }
   '='       { TokenEq }
   '+'       { TokenPlus }
   '-'       { TokenMinus }
   '*'       { TokenTimes }
   '/'       { TokenDiv }
-  not       { TokenNot }
-  '('       { TokenOB }
-  ')'       { TokenCB }
+  '('       { TokenOP }
+  ')'       { TokenCP }
+  '{'       { TokenOB }
+  '}'       { TokenCB }
 
 %left and or
 %left '+' '-'
@@ -52,6 +58,7 @@ BinOp
 UnOp
   : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
   | isZero '(' Expr ')'                   { AST.UnOpExpr AST.IsZero $3 }
+  -- | minus '(' Expr ')'                    { AST.UnOpExpr AST.Negate $3 }
 
 LetExpr
   : let var '=' Expr in Expr              { AST.Let $2 $4 $6 }
@@ -74,9 +81,9 @@ ArithFactor
 
 Primary
   : Literal                               { AST.Literal $1 }
-  | '(' '-' ArithExpr ')'                 { AST.ArithUnOp AST.Negate $3 }
   | Variable                              { AST.Variable $1 }
   | '(' Expr ')'                          { AST.ParenExpr $2 }
+  | minus '(' Expr ')'                    { AST.ParenExpr $ AST.UnOpExpr AST.Negate $3 }
 
 Literal
   : int                                   { AST.IntLit $1 }
@@ -85,12 +92,9 @@ Literal
 Variable
   : var                                   { AST.Var $1 }
 
--- Predicate
---   : isZero IntExpr                        { AST.IsZero $2 }
-
 {
 parseError :: [Token] -> a
-parseError _ = error "Parse error"
+parseError xs = error $ "Parse error " ++ show xs
 
 data Token
   = TokenLet
@@ -108,13 +112,19 @@ data Token
   | TokenElse
   | TokenIsZero
   | TokenNot
+  | TokenNegate
+  | TokenOP
+  | TokenCP
   | TokenOB
   | TokenCB
   | TokenBoolAnd
   | TokenBoolOr
+  | TokenBoolEq
+  | TokenBoolGt
+  | TokenBoolLt
   deriving (Show)
 
-reservedOperators = ['=','+','-','*','/','(',')', '&', '|', '!']
+reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '&', '|', '!', '<', '>']
 
 reservedKeywords = [
   "let",
@@ -124,7 +134,9 @@ reservedKeywords = [
   "else",
   "true",
   "false",
-  "isZero"
+  "isZero",
+  "not",
+  "minus"
   ]
 
 lexer :: String -> [Token]
@@ -156,19 +168,26 @@ lexKeyword "else"   = TokenElse
 lexKeyword "true"   = TokenBoolean True
 lexKeyword "false"  = TokenBoolean False
 lexKeyword "isZero" = TokenIsZero
+lexKeyword "not"    = TokenNot
+lexKeyword "minus"  = TokenNegate
 lexKeyword (c:_)    = error $ "Unexpected keyword: " ++ [c]
 
 lexOperator :: String -> [Token]
+lexOperator ('&':'&':cs) = TokenBoolAnd : lexer cs
+lexOperator ('|':'|':cs) = TokenBoolOr : lexer cs
+lexOperator ('=':'=':cs) = TokenBoolEq : lexer cs
+lexOperator ('>':cs) = TokenBoolGt : lexer cs
+lexOperator ('<':cs) = TokenBoolLt : lexer cs
 lexOperator ('=':cs) = TokenEq : lexer cs
 lexOperator ('+':cs) = TokenPlus : lexer cs
 lexOperator ('-':cs) = TokenMinus : lexer cs
 lexOperator ('*':cs) = TokenTimes : lexer cs
 lexOperator ('/':cs) = TokenDiv : lexer cs
 lexOperator ('!':cs) = TokenNot : lexer cs
-lexOperator ('(':cs) = TokenOB : lexer cs
-lexOperator (')':cs) = TokenCB : lexer cs
-lexOperator ('&':'&':cs) = TokenBoolAnd : lexer cs
-lexOperator ('|':'|':cs) = TokenBoolOr : lexer cs
+lexOperator ('(':cs) = TokenOP : lexer cs
+lexOperator (')':cs) = TokenCP : lexer cs
+lexOperator ('{':cs) = TokenOB : lexer cs
+lexOperator ('}':cs) = TokenCB : lexer cs
 lexOperator (c:_)    = error $ "Unexpected operator: " ++ [c]
 
 parseExpr :: String -> AST.Expr

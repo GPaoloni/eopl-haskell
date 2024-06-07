@@ -4,6 +4,7 @@ import Env (emptyEnv)
 -- import Evaluator (evalExpr)
 import Parser (parseExpr)
 import qualified AST
+import Evaluator
 
 main :: IO ()
 main = do
@@ -14,9 +15,9 @@ main = do
       let parsed = parseExpr input
       print parsed
       -- print $ evalExpr (emptyEnv ()) parsed
-      -- handleResult $ evalExp parsed (emptyEnv ())
+      handleResult $ evalExpr (emptyEnv ()) parsed 
     _ -> putStrLn "Missing inputFilePath, expected as command-line argument"
 
--- handleResult :: Either String AST.ExpVal -> IO ()
--- handleResult (Right result) = print result
--- handleResult (Left errorMsg) = putStrLn $ "Error: " ++ errorMsg
+handleResult :: ExprResult -> IO ()
+handleResult (Right result) = print result
+handleResult (Left errorMsg) = putStrLn $ "Error: " ++ errorMsg

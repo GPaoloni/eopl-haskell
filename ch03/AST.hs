@@ -29,21 +29,15 @@ data BinOp
   | Div
   | And
   | Or
+  | Eq
+  | Gt
+  | Lt
   deriving (Show)
 
 data UnOp
   = Negate
   | Not
   | IsZero
-  deriving (Show)
-
-data Literal
-  = IntLit Int
-  | BoolLit Bool
-  deriving (Show)
-
-data Variable where
-  Var :: String -> Variable
   deriving (Show)
 
 data LetExpr
@@ -71,7 +65,15 @@ data ArithFactor
 
 data Primary
   = Literal Literal
-  | ArithUnOp UnOp ArithExpr
   | Variable Variable
   | ParenExpr Expr
+  deriving (Show)
+
+data Literal
+  = IntLit Int
+  | BoolLit Bool
+  deriving (Show)
+
+data Variable where
+  Var :: String -> Variable
   deriving (Show)
