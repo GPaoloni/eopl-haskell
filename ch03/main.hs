@@ -1,7 +1,6 @@
 import System.Environment (getArgs)
 
 import Env (emptyEnv)
--- import Evaluator (evalExpr)
 import Parser (parseExpr)
 import qualified AST
 import Evaluator

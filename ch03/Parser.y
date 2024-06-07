@@ -10,80 +10,56 @@ import qualified Data.Char as T
 %error { parseError }
 
 %token
+  -- variables
+  var       { TokenVar $$ }
+  -- constants
+  int       { TokenInt $$ }
+  boolean   { TokenBoolean $$ }
+  -- keywords
   let       { TokenLet }
   in        { TokenIn }
-  int       { TokenInt $$ }
-  var       { TokenVar $$ }
-  boolean   { TokenBoolean $$ }
   if        { TokenIf }
   then      { TokenThen }
   else      { TokenElse }
+  -- unary operators
   isZero    { TokenIsZero }
   minus     { TokenNegate }
   not       { TokenNot }
+  -- logical operators
   and       { TokenBoolAnd }
   or        { TokenBoolOr }
+  -- comparison operators
   "=="      { TokenBoolEq }
   '>'       { TokenBoolGt }
   '<'       { TokenBoolLt }
   '='       { TokenEq }
+  -- arithmetic operators
   '+'       { TokenPlus }
   '-'       { TokenMinus }
   '*'       { TokenTimes }
   '/'       { TokenDiv }
+  -- parenthesis
   '('       { TokenOP }
   ')'       { TokenCP }
+  -- brackets
   '{'       { TokenOB }
   '}'       { TokenCB }
+  -- separator
+  ','       { TokenComma }
 
-%left and or
-%left '+' '-'
-%left '*' '/'
+-- %left and or
+-- %left '+' '-'
+-- %left '*' '/'
 
 %%
 
-
 Expr
-  : Primary                               { AST.PrimaryExpr $1 }
-  | ArithExpr                             { AST.ArithExpr $1 }
-  | LetExpr                               { AST.LetExpr $1 }
-  | IfExpr                                { AST.IfExpr $1 }
-  | BinOp                                 { $1 }
-  | UnOp                                  { $1 }
-
-BinOp
-  : Expr and Expr                         { AST.BinOpExpr AST.And $1 $3 }
-  | Expr or Expr                          { AST.BinOpExpr AST.Or $1 $3 }
-
-UnOp
-  : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
-  | isZero '(' Expr ')'                   { AST.UnOpExpr AST.IsZero $3 }
-  -- | minus '(' Expr ')'                    { AST.UnOpExpr AST.Negate $3 }
-
-LetExpr
-  : let var '=' Expr in Expr              { AST.Let $2 $4 $6 }
-
-IfExpr
-  : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
-
-ArithExpr
-  : ArithTerm                             { AST.ArithTerm $1 }
-
-ArithTerm
-  : ArithFactor                           { AST.ArithFactor $1 }
-  | ArithTerm '+' ArithFactor             { AST.ArithTermOp AST.Plus $1 $3 }
-  | ArithTerm '-' ArithFactor             { AST.ArithTermOp AST.Minus $1 $3 }
-
-ArithFactor
-  : Primary                               { AST.Primary $1 }
-  | ArithFactor '*' Primary               { AST.ArithFactorOp AST.Times $1 $3 }
-  | ArithFactor '/' Primary               { AST.ArithFactorOp AST.Div $1 $3 }
-
-Primary
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
-  | '(' Expr ')'                          { AST.ParenExpr $2 }
-  | minus '(' Expr ')'                    { AST.ParenExpr $ AST.UnOpExpr AST.Negate $3 }
+  | LetExpr                               { AST.LetExpr $1 }
+  | IfExpr                                { AST.IfExpr $1 }
+  | UnOp                                  { $1 }
+  | BinOp                                 { $1 }
 
 Literal
   : int                                   { AST.IntLit $1 }
@@ -92,39 +68,63 @@ Literal
 Variable
   : var                                   { AST.Var $1 }
 
+LetExpr
+  : let var '=' Expr in Expr              { AST.Let $2 $4 $6 }
+
+IfExpr
+  : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
+
+UnOp
+  : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
+  | isZero '(' Expr ')'                   { AST.UnOpExpr AST.IsZero $3 }
+  | minus '(' Expr ')'                    { AST.UnOpExpr AST.Negate $3 }
+  | '-' '(' Expr ')'                      { AST.UnOpExpr AST.Negate $3 }
+
+BinOp
+  : and '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.And $3 $5 }
+  | or '(' Expr ',' Expr ')'              { AST.BinOpExpr AST.Or $3 $5 }
+  | '+' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Plus $3 $5 }
+  | '-' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Minus $3 $5 }
+  | '*' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Times $3 $5 }
+  | '/' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Div $3 $5 }
+  | "==" '(' Expr ',' Expr ')'            { AST.BinOpExpr AST.Eq $3 $5 }
+  | '>' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Gt $3 $5 }
+  | '<' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Lt $3 $5 }
+
 {
 parseError :: [Token] -> a
 parseError xs = error $ "Parse error " ++ show xs
 
 data Token
-  = TokenLet
-  | TokenIn
+  = TokenVar String
   | TokenInt Int
-  | TokenVar String
   | TokenBoolean Bool
-  | TokenEq
-  | TokenPlus
-  | TokenMinus
-  | TokenTimes
-  | TokenDiv
+  | TokenLet
+  | TokenIn
   | TokenIf
   | TokenThen
   | TokenElse
   | TokenIsZero
-  | TokenNot
   | TokenNegate
-  | TokenOP
-  | TokenCP
-  | TokenOB
-  | TokenCB
+  | TokenNot
   | TokenBoolAnd
   | TokenBoolOr
   | TokenBoolEq
   | TokenBoolGt
   | TokenBoolLt
+  | TokenEq
+  | TokenPlus
+  | TokenMinus
+  | TokenTimes
+  | TokenDiv
+  | TokenOP
+  | TokenCP
+  | TokenOB
+  | TokenCB
+  | TokenComma
   deriving (Show)
 
-reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '&', '|', '!', '<', '>']
+reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '&', '|', '!', '<', '>', ',']
 
 reservedKeywords = [
   "let",
@@ -188,6 +188,7 @@ lexOperator ('(':cs) = TokenOP : lexer cs
 lexOperator (')':cs) = TokenCP : lexer cs
 lexOperator ('{':cs) = TokenOB : lexer cs
 lexOperator ('}':cs) = TokenCB : lexer cs
+lexOperator (',':cs) = TokenComma : lexer cs
 lexOperator (c:_)    = error $ "Unexpected operator: " ++ [c]
 
 parseExpr :: String -> AST.Expr

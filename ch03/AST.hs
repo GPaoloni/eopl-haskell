@@ -6,20 +6,33 @@ module AST
     Variable (..),
     LetExpr (..),
     IfExpr (..),
-    ArithExpr (..),
-    ArithTerm (..),
-    ArithFactor (..),
-    Primary (..),
   )
 where
 
 data Expr
-  = PrimaryExpr Primary
-  | ArithExpr ArithExpr
-  | BinOpExpr BinOp Expr Expr
-  | UnOpExpr UnOp Expr
+  = Literal Literal
+  | Variable Variable
   | LetExpr LetExpr
   | IfExpr IfExpr
+  | UnOpExpr UnOp Expr
+  | BinOpExpr BinOp Expr Expr
+  deriving (Show)
+
+data LetExpr
+  = Let String Expr Expr
+  deriving (Show)
+
+data IfExpr
+  = If Expr Expr Expr
+  deriving (Show)
+
+data Literal
+  = IntLit Int
+  | BoolLit Bool
+  deriving (Show)
+
+data Variable where
+  Var :: String -> Variable
   deriving (Show)
 
 data BinOp
@@ -38,42 +51,4 @@ data UnOp
   = Negate
   | Not
   | IsZero
-  deriving (Show)
-
-data LetExpr
-  = Let String Expr Expr
-  deriving (Show)
-
-data IfExpr
-  = If Expr Expr Expr
-  deriving (Show)
-
-data ArithExpr
-  = ArithTerm ArithTerm
-  | IfArithExpr Expr ArithExpr ArithExpr
-  deriving (Show)
-
-data ArithTerm
-  = ArithFactor ArithFactor
-  | ArithTermOp BinOp ArithTerm ArithFactor
-  deriving (Show)
-
-data ArithFactor
-  = Primary Primary
-  | ArithFactorOp BinOp ArithFactor Primary
-  deriving (Show)
-
-data Primary
-  = Literal Literal
-  | Variable Variable
-  | ParenExpr Expr
-  deriving (Show)
-
-data Literal
-  = IntLit Int
-  | BoolLit Bool
-  deriving (Show)
-
-data Variable where
-  Var :: String -> Variable
   deriving (Show)
