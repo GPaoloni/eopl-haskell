@@ -2,12 +2,14 @@
 module Parser (parseExpr) where
 
 import qualified AST
+import SList
 import qualified Data.Char as T
 }
 
 %name calc
 %tokentype { Token }
 %error { parseError }
+-- %expect 0
 
 %token
   -- variables
@@ -25,6 +27,8 @@ import qualified Data.Char as T
   isZero    { TokenIsZero }
   minus     { TokenNegate }
   not       { TokenNot }
+  -- list constructor
+  cons      { TokenCons }
   -- logical operators
   and       { TokenBoolAnd }
   or        { TokenBoolOr }
@@ -44,16 +48,32 @@ import qualified Data.Char as T
   -- brackets
   '{'       { TokenOB }
   '}'       { TokenCB }
+  '['       { TokenOS }
+  ']'       { TokenCS }
   -- separator
   ','       { TokenComma }
 
--- %left and or
+%right else in
+-- %right '->'
+-- %left '|'
+-- %left '&'
+-- %nonassoc '=' '<>' '<' '>' '<=' '>='
 -- %left '+' '-'
 -- %left '*' '/'
 
 %%
 
 Expr
+  : Literal                               { AST.Literal $1 }
+  | Variable                              { AST.Variable $1 }
+  | List                                  { AST.List $1 }
+  | LetExpr                               { AST.LetExpr $1 }
+  | IfExpr                                { AST.IfExpr $1 }
+  | UnOp                                  { $1 }
+  | BinOp                                 { $1 }
+
+{- replica of Expr to sort nested list issues -}
+NonListExpr
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
   | LetExpr                               { AST.LetExpr $1 }
@@ -67,6 +87,14 @@ Literal
 
 Variable
   : var                                   { AST.Var $1 }
+
+List
+  : '[' ']'                               { Empty }
+  | cons '(' ListNode ',' List ')'        { Cons $3 $5  }
+
+ListNode
+  : List                                  { SList $1 }
+  | NonListExpr                           { Val $1 }
 
 LetExpr
   : let var '=' Expr in Expr              { AST.Let $2 $4 $6 }
@@ -91,6 +119,20 @@ BinOp
   | '>' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Gt $3 $5 }
   | '<' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Lt $3 $5 }
 
+-- optional(p)
+--   :                                       { Nothing }
+--   | p                                     { Just $1 }
+
+-- | '[' sepBy(exp, ',') ']'
+
+-- where
+-- sepBy_rev(p, sep)
+--   :                         { [] }
+--   | sepBy_rev(p, sep) sep p { $3 : $1 }
+
+-- sepBy(p, sep)
+--   : sepBy_rev(p, sep) { reverse $1 }
+
 {
 parseError :: [Token] -> a
 parseError xs = error $ "Parse error " ++ show xs
@@ -107,6 +149,7 @@ data Token
   | TokenIsZero
   | TokenNegate
   | TokenNot
+  | TokenCons
   | TokenBoolAnd
   | TokenBoolOr
   | TokenBoolEq
@@ -121,10 +164,12 @@ data Token
   | TokenCP
   | TokenOB
   | TokenCB
+  | TokenOS
+  | TokenCS
   | TokenComma
   deriving (Show)
 
-reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '&', '|', '!', '<', '>', ',']
+reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '[', ']', '&', '|', '!', '<', '>', ',']
 
 reservedKeywords = [
   "let",
@@ -136,7 +181,8 @@ reservedKeywords = [
   "false",
   "isZero",
   "not",
-  "minus"
+  "minus",
+  "cons"
   ]
 
 lexer :: String -> [Token]
@@ -170,6 +216,7 @@ lexKeyword "false"  = TokenBoolean False
 lexKeyword "isZero" = TokenIsZero
 lexKeyword "not"    = TokenNot
 lexKeyword "minus"  = TokenNegate
+lexKeyword "cons"   = TokenCons
 lexKeyword (c:_)    = error $ "Unexpected keyword: " ++ [c]
 
 lexOperator :: String -> [Token]
@@ -188,6 +235,8 @@ lexOperator ('(':cs) = TokenOP : lexer cs
 lexOperator (')':cs) = TokenCP : lexer cs
 lexOperator ('{':cs) = TokenOB : lexer cs
 lexOperator ('}':cs) = TokenCB : lexer cs
+lexOperator ('[':cs) = TokenOS : lexer cs
+lexOperator (']':cs) = TokenCS : lexer cs
 lexOperator (',':cs) = TokenComma : lexer cs
 lexOperator (c:_)    = error $ "Unexpected operator: " ++ [c]
 
