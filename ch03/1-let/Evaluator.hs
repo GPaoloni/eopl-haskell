@@ -4,7 +4,6 @@ import AST
 import Control.Monad
 import Env
 import SList
-import Control.Monad.Except
 
 type LetEnv = Env String Result
 
@@ -49,7 +48,6 @@ evalExpr env (BinOpExpr binOp expr1 expr2) = evalBinOpExpr env binOp expr1 expr2
 evalLiteral :: LetEnv -> Literal -> ExprResult
 evalLiteral _ (IntLit n) = Right (RInt n)
 evalLiteral _ (BoolLit b) = Right (RBool b)
-evalLiteral _ EmptyList = Right (RList [])
 
 evalVariable :: LetEnv -> Variable -> ExprResult
 evalVariable env (Var var) =
@@ -59,8 +57,12 @@ evalList :: LetEnv -> ListExpr -> ExprResult
 evalList _ Empty = Right $ RList []
 evalList env (Cons x xs) = do
   x' <- evalSNode env x
-  xs' <- evalList env xs
-  Right $ RList (x':[xs'])
+  xs' <- evalList env xs >>= toList
+  Right $ RList (x':xs')
+  -- this represents, as Haskell lists, more closely the "nested structure" derived from the cons construct
+  -- the one that's actually used howver, unwraps the cons constructs to match actual Haskell lists (as with : operator)
+  -- xs' <- evalList env xs
+  -- Right $ RList (x':[xs'])
 
 evalSNode :: LetEnv -> SNode Expr -> ExprResult
 evalSNode env (Val expr) = evalExpr env expr

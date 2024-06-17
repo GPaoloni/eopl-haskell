@@ -25,7 +25,6 @@ data Expr
 data Literal
   = IntLit Int
   | BoolLit Bool
-  | EmptyList
   deriving (Show)
 
 data Variable where
