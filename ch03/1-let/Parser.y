@@ -58,12 +58,6 @@ import qualified Data.Char as T
   "==>"     { TokenLongArrow }
 
 %right else in
--- %right '->'
--- %left '|'
--- %left '&'
--- %nonassoc '=' '<>' '<' '>' '<=' '>='
--- %left '+' '-'
--- %left '*' '/'
 
 %%
 
@@ -120,24 +114,30 @@ CondExpr
   : cond many(CondExprRule) end           { AST.Cond $2 }
 
 CondExprRule
-  : Expr "==>" Expr                   { ($1,  $3) }
+  : Expr "==>" Expr                       { ($1,  $3) }
 
 UnOp
-  : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
-  | isZero '(' Expr ')'                   { AST.UnOpExpr AST.IsZero $3 }
-  | minus '(' Expr ')'                    { AST.UnOpExpr AST.Negate $3 }
-  | '-' '(' Expr ')'                      { AST.UnOpExpr AST.Negate $3 }
+  : UnOpOp Expr                           { AST.UnOpExpr $1 $2 }
+
+UnOpOp
+  : not                                   { AST.Not }
+  | isZero                                { AST.IsZero }
+  | minus                                 { AST.Negate }
+  | '-'                                   { AST.Negate }
 
 BinOp
-  : and '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.And $3 $5 }
-  | or '(' Expr ',' Expr ')'              { AST.BinOpExpr AST.Or $3 $5 }
-  | '+' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Plus $3 $5 }
-  | '-' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Minus $3 $5 }
-  | '*' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Times $3 $5 }
-  | '/' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Div $3 $5 }
-  | "==" '(' Expr ',' Expr ')'            { AST.BinOpExpr AST.Eq $3 $5 }
-  | '>' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Gt $3 $5 }
-  | '<' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Lt $3 $5 }
+  : BinOpOp '(' Expr ',' Expr ')'         { AST.BinOpExpr $1 $3 $5 }
+
+BinOpOp
+  : and                                   { AST.And }
+  | or                                    { AST.Or }
+  | '+'                                   { AST.Plus }
+  | '-'                                   { AST.Minus }
+  | '*'                                   { AST.Times }
+  | '/'                                   { AST.Div }
+  | "=="                                  { AST.Eq }
+  | '>'                                   { AST.Gt }
+  | '<'                                   { AST.Lt }
 
 -- optional(p)
 --   :                                       { Nothing }
