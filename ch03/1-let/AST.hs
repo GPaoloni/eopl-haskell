@@ -5,6 +5,7 @@ module AST
     ListExpr,
     LetExpr (..),
     IfExpr (..),
+    CondExpr (..),
     UnOp (..),
     BinOp (..),
   )
@@ -18,6 +19,7 @@ data Expr
   | List ListExpr
   | LetExpr LetExpr
   | IfExpr IfExpr
+  | CondExpr CondExpr
   | UnOpExpr UnOp Expr
   | BinOpExpr BinOp Expr Expr
   deriving (Show)
@@ -39,6 +41,9 @@ data LetExpr
 
 data IfExpr
   = If Expr Expr Expr
+  deriving (Show)
+
+newtype CondExpr = Cond [(Expr, Expr)]
   deriving (Show)
 
 data UnOp

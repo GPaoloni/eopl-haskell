@@ -42,6 +42,7 @@ evalExpr env (Variable expr) = evalVariable env expr
 evalExpr env (List expr) = evalList env expr
 evalExpr env (LetExpr expr) = evalLetExpr env expr
 evalExpr env (IfExpr expr) = evalIfExpr env expr
+evalExpr env (CondExpr expr) = evalCondExpr env expr
 evalExpr env (UnOpExpr unOp expr) = evalUnOpExpr env unOp expr
 evalExpr env (BinOpExpr binOp expr1 expr2) = evalBinOpExpr env binOp expr1 expr2
 
@@ -58,11 +59,12 @@ evalList _ Empty = Right $ RList []
 evalList env (Cons x xs) = do
   x' <- evalSNode env x
   xs' <- evalList env xs >>= toList
-  Right $ RList (x':xs')
-  -- this represents, as Haskell lists, more closely the "nested structure" derived from the cons construct
-  -- the one that's actually used howver, unwraps the cons constructs to match actual Haskell lists (as with : operator)
-  -- xs' <- evalList env xs
-  -- Right $ RList (x':[xs'])
+  Right $ RList (x' : xs')
+
+-- this represents, as Haskell lists, more closely the "nested structure" derived from the cons construct
+-- the one that's actually used howver, unwraps the cons constructs to match actual Haskell lists (as with : operator)
+-- xs' <- evalList env xs
+-- Right $ RList (x':[xs'])
 
 evalSNode :: LetEnv -> SNode Expr -> ExprResult
 evalSNode env (Val expr) = evalExpr env expr
@@ -72,6 +74,12 @@ evalIfExpr :: LetEnv -> IfExpr -> ExprResult
 evalIfExpr env (If ifExpr thenExpr elseExpr) = do
   cond <- evalToBool env ifExpr
   if cond then evalExpr env thenExpr else evalExpr env elseExpr
+
+evalCondExpr :: LetEnv -> CondExpr -> ExprResult
+evalCondExpr _ (Cond []) = Left "evalCondExpr: none of the predicates evaluated true"
+evalCondExpr env (Cond ((ifExpr, thenExpr) : xs)) = do
+  cond <- evalExpr env ifExpr >>= toBool
+  if cond then evalExpr env thenExpr else evalCondExpr env (Cond xs)
 
 evalLetExpr :: LetEnv -> LetExpr -> ExprResult
 evalLetExpr env (Let var assignExpr inExpr) = do
@@ -102,7 +110,6 @@ evalBinOpExpr env Or = applyBinOp (evalToBool env) (\rand rator -> Right $ RBool
 evalBinOpExpr env Eq = applyBinOp (evalToInt env) (\rand rator -> Right $ RBool $ rand == rator)
 evalBinOpExpr env Gt = applyBinOp (evalToInt env) (\rand rator -> Right $ RBool $ rand > rator)
 evalBinOpExpr env Lt = applyBinOp (evalToInt env) (\rand rator -> Right $ RBool $ rand < rator)
-
 
 {--
   apllyBinOp expects

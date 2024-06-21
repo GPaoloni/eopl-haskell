@@ -23,12 +23,15 @@ import qualified Data.Char as T
   if        { TokenIf }
   then      { TokenThen }
   else      { TokenElse }
+  cond      { TokenCond }
+  end       { TokenEnd }
   -- unary operators
   isZero    { TokenIsZero }
   minus     { TokenNegate }
   not       { TokenNot }
   -- list constructor
   cons      { TokenCons }
+  list      { TokenList }
   -- logical operators
   and       { TokenBoolAnd }
   or        { TokenBoolOr }
@@ -50,8 +53,9 @@ import qualified Data.Char as T
   '}'       { TokenCB }
   '['       { TokenOS }
   ']'       { TokenCS }
-  -- separator
+  -- separators
   ','       { TokenComma }
+  "==>"     { TokenLongArrow }
 
 %right else in
 -- %right '->'
@@ -69,15 +73,21 @@ Expr
   | List                                  { AST.List $1 }
   | LetExpr                               { AST.LetExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
+  | CondExpr                              { AST.CondExpr $1 }
   | UnOp                                  { $1 }
   | BinOp                                 { $1 }
 
-{- replica of Expr to sort nested list issues -}
+{- 
+  replica of Expr to sort nested list issues 
+
+  IMPORTANT: keep up to date with Expr
+-}
 NonListExpr
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
   | LetExpr                               { AST.LetExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
+  | CondExpr                              { AST.CondExpr $1 }
   | UnOp                                  { $1 }
   | BinOp                                 { $1 }
 
@@ -91,6 +101,10 @@ Variable
 List
   : '[' ']'                               { Empty }
   | cons '(' ListNode ',' List ')'        { Cons $3 $5  }
+  | list '(' SyntaxSugarList ')'          { foldr Cons Empty $3 }
+
+SyntaxSugarList
+  : sepBy(ListNode, ',')                   { $1 }
 
 ListNode
   : List                                  { SList $1 }
@@ -101,6 +115,12 @@ LetExpr
 
 IfExpr
   : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
+
+CondExpr
+  : cond many(CondExprRule) end           { AST.Cond $2 }
+
+CondExprRule
+  : Expr "==>" Expr                   { ($1,  $3) }
 
 UnOp
   : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
@@ -123,15 +143,20 @@ BinOp
 --   :                                       { Nothing }
 --   | p                                     { Just $1 }
 
--- | '[' sepBy(exp, ',') ']'
+sepBy_rev(p, sep)
+  :                         { [] }
+  | p                       { [$1] }
+  | sepBy_rev(p, sep) sep p { $3 : $1 }
 
--- where
--- sepBy_rev(p, sep)
---   :                         { [] }
---   | sepBy_rev(p, sep) sep p { $3 : $1 }
+sepBy(p, sep)
+  : sepBy_rev(p, sep) { reverse $1 }
 
--- sepBy(p, sep)
---   : sepBy_rev(p, sep) { reverse $1 }
+many_rev(p)
+  :               { [] }
+  | many_rev(p) p { $2 : $1 }
+
+many(p)
+  : many_rev(p) { reverse $1 }
 
 {
 parseError :: [Token] -> a
@@ -146,10 +171,13 @@ data Token
   | TokenIf
   | TokenThen
   | TokenElse
+  | TokenCond
+  | TokenEnd
   | TokenIsZero
   | TokenNegate
   | TokenNot
   | TokenCons
+  | TokenList
   | TokenBoolAnd
   | TokenBoolOr
   | TokenBoolEq
@@ -167,6 +195,7 @@ data Token
   | TokenOS
   | TokenCS
   | TokenComma
+  | TokenLongArrow
   deriving (Show)
 
 reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '[', ']', '&', '|', '!', '<', '>', ',']
@@ -177,12 +206,15 @@ reservedKeywords = [
   "if",
   "then",
   "else",
+  "cond",
+  "end",
   "true",
   "false",
   "isZero",
   "not",
   "minus",
-  "cons"
+  "cons",
+  "list"
   ]
 
 lexer :: String -> [Token]
@@ -211,15 +243,19 @@ lexKeyword "in"     = TokenIn
 lexKeyword "if"     = TokenIf
 lexKeyword "then"   = TokenThen
 lexKeyword "else"   = TokenElse
+lexKeyword "cond"   = TokenCond
+lexKeyword "end"    = TokenEnd
 lexKeyword "true"   = TokenBoolean True
 lexKeyword "false"  = TokenBoolean False
 lexKeyword "isZero" = TokenIsZero
 lexKeyword "not"    = TokenNot
 lexKeyword "minus"  = TokenNegate
 lexKeyword "cons"   = TokenCons
+lexKeyword "list"   = TokenList
 lexKeyword (c:_)    = error $ "Unexpected keyword: " ++ [c]
 
 lexOperator :: String -> [Token]
+lexOperator ('=':'=':'>':cs) = TokenLongArrow : lexer cs
 lexOperator ('&':'&':cs) = TokenBoolAnd : lexer cs
 lexOperator ('|':'|':cs) = TokenBoolOr : lexer cs
 lexOperator ('=':'=':cs) = TokenBoolEq : lexer cs
