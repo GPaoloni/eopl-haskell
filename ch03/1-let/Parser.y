@@ -57,7 +57,15 @@ import qualified Data.Char as T
   ','       { TokenComma }
   "==>"     { TokenLongArrow }
 
+-- %right '->'
 %right else in
+%left APP
+%left BINOP
+%left '*' '/'
+%left '+' '-'
+%left and
+%left or
+%nonassoc '=' "==" '<>' '<' '>' '<=' '>='
 
 %%
 
@@ -117,16 +125,26 @@ CondExprRule
   : Expr "==>" Expr                       { ($1,  $3) }
 
 UnOp
-  : UnOpOp Expr                           { AST.UnOpExpr $1 $2 }
+  : UnOpOp Expr %prec APP                    { AST.UnOpExpr $1 $2 }
 
 UnOpOp
   : not                                   { AST.Not }
   | isZero                                { AST.IsZero }
   | minus                                 { AST.Negate }
-  | '-'                                   { AST.Negate }
+  -- | '-'                                   { AST.Negate }
 
 BinOp
-  : BinOpOp '(' Expr ',' Expr ')'         { AST.BinOpExpr $1 $3 $5 }
+  : '(' BinOpOp ')' Expr Expr %prec BINOP { AST.BinOpExpr $2 $4 $5 }
+  | Expr BinOpOp Expr %prec BINOP         { AST.BinOpExpr $2 $1 $3 }
+  -- | Expr and Expr                         { AST.BinOpExpr AST.And $1 $3 }
+  -- | Expr or Expr                          { AST.BinOpExpr AST.Or $1 $3 }
+  -- | Expr '+' Expr                         { AST.BinOpExpr AST.Plus $1 $3 }
+  -- | Expr '-' Expr                         { AST.BinOpExpr AST.Minus $1 $3 }
+  -- | Expr '*' Expr                         { AST.BinOpExpr AST.Times $1 $3 }
+  -- | Expr '/' Expr                         { AST.BinOpExpr AST.Div $1 $3 }
+  -- | Expr "==" Expr                        { AST.BinOpExpr AST.Eq $1 $3 }
+  -- | Expr '>' Expr                         { AST.BinOpExpr AST.Gt $1 $3 }
+  -- | Expr '<' Expr                         { AST.BinOpExpr AST.Lt $1 $3 }
 
 BinOpOp
   : and                                   { AST.And }
