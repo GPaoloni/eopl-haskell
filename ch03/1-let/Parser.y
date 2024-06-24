@@ -56,6 +56,8 @@ import qualified Data.Char as T
   -- separators
   ','       { TokenComma }
   "==>"     { TokenLongArrow }
+  -- effect
+  print     { TokenPrint }
 
 %right else in
 
@@ -64,12 +66,13 @@ import qualified Data.Char as T
 Expr
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
-  | List                                  { AST.List $1 }
+  | ListExpr                              { AST.ListExpr $1 }
   | LetExpr                               { AST.LetExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
   | CondExpr                              { AST.CondExpr $1 }
-  | UnOp                                  { $1 }
-  | BinOp                                 { $1 }
+  | UnOpExpr                              { $1 }
+  | BinOpExpr                             { $1 }
+  | EffectExpr                            { AST.EffectExpr $1 }
 
 {- 
   replica of Expr to sort nested list issues 
@@ -82,8 +85,9 @@ NonListExpr
   | LetExpr                               { AST.LetExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
   | CondExpr                              { AST.CondExpr $1 }
-  | UnOp                                  { $1 }
-  | BinOp                                 { $1 }
+  | UnOpExpr                              { $1 }
+  | BinOpExpr                             { $1 }
+  | EffectExpr                            { AST.EffectExpr $1 }
 
 Literal
   : int                                   { AST.IntLit $1 }
@@ -92,16 +96,16 @@ Literal
 Variable
   : var                                   { AST.Var $1 }
 
-List
+ListExpr
   : '[' ']'                               { Empty }
-  | cons '(' ListNode ',' List ')'        { Cons $3 $5  }
+  | cons '(' ListNode ',' ListExpr ')'    { Cons $3 $5  }
   | list '(' SyntaxSugarList ')'          { foldr Cons Empty $3 }
 
 SyntaxSugarList
   : sepBy(ListNode, ',')                   { $1 }
 
 ListNode
-  : List                                  { SList $1 }
+  : ListExpr                              { SList $1 }
   | NonListExpr                           { Val $1 }
 
 LetExpr
@@ -116,19 +120,19 @@ CondExpr
 CondExprRule
   : Expr "==>" Expr                       { ($1,  $3) }
 
-UnOp
-  : UnOpOp Expr                           { AST.UnOpExpr $1 $2 }
+UnOpExpr
+  : UnOpExprOp '(' Expr ')'               { AST.UnOpExpr $1 $3 }
 
-UnOpOp
+UnOpExprOp
   : not                                   { AST.Not }
   | isZero                                { AST.IsZero }
   | minus                                 { AST.Negate }
-  | '-'                                   { AST.Negate }
+  -- | '-'                                   { AST.Negate }
 
-BinOp
-  : BinOpOp '(' Expr ',' Expr ')'         { AST.BinOpExpr $1 $3 $5 }
+BinOpExpr
+  : BinOpExprOp '(' Expr ',' Expr ')'     { AST.BinOpExpr $1 $3 $5 }
 
-BinOpOp
+BinOpExprOp
   : and                                   { AST.And }
   | or                                    { AST.Or }
   | '+'                                   { AST.Plus }
@@ -138,6 +142,9 @@ BinOpOp
   | "=="                                  { AST.Eq }
   | '>'                                   { AST.Gt }
   | '<'                                   { AST.Lt }
+
+EffectExpr
+  : print '(' Expr ')'                    { AST.PrintEffect $3 }
 
 -- optional(p)
 --   :                                       { Nothing }
@@ -196,6 +203,7 @@ data Token
   | TokenCS
   | TokenComma
   | TokenLongArrow
+  | TokenPrint
   deriving (Show)
 
 reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '[', ']', '&', '|', '!', '<', '>', ',']
@@ -214,7 +222,8 @@ reservedKeywords = [
   "not",
   "minus",
   "cons",
-  "list"
+  "list",
+  "print"
   ]
 
 lexer :: String -> [Token]
@@ -252,6 +261,7 @@ lexKeyword "not"    = TokenNot
 lexKeyword "minus"  = TokenNegate
 lexKeyword "cons"   = TokenCons
 lexKeyword "list"   = TokenList
+lexKeyword "print"  = TokenPrint
 lexKeyword (c:_)    = error $ "Unexpected keyword: " ++ [c]
 
 lexOperator :: String -> [Token]

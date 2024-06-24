@@ -8,6 +8,7 @@ module AST
     CondExpr (..),
     UnOp (..),
     BinOp (..),
+    EffectExpr (..),
   )
 where
 
@@ -16,12 +17,13 @@ import SList
 data Expr
   = Literal Literal
   | Variable Variable
-  | List ListExpr
+  | ListExpr ListExpr
   | LetExpr LetExpr
   | IfExpr IfExpr
   | CondExpr CondExpr
   | UnOpExpr UnOp Expr
   | BinOpExpr BinOp Expr Expr
+  | EffectExpr EffectExpr
   deriving (Show)
 
 data Literal
@@ -62,4 +64,8 @@ data BinOp
   | Eq
   | Gt
   | Lt
+  deriving (Show)
+
+data EffectExpr where
+  PrintEffect :: Expr -> EffectExpr
   deriving (Show)
