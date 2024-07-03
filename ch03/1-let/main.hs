@@ -1,4 +1,4 @@
-import Control.Monad.Except (runExceptT)
+-- import Control.Monad.Except (runExceptT)
 import Env (emptyEnv)
 import Evaluator
 import Parser (parseExpr)
@@ -14,12 +14,12 @@ main = do
       let parsed = parseExpr input
       print parsed
       -- print $ evalExpr (emptyEnv ()) parsed
-      handleResult $ evalExpr (emptyEnv ()) parsed
+      result <- runEvalExpr (emptyEnv ()) parsed 
+      handleResult result
     _ -> putStrLn "Missing inputFilePath, expected as command-line argument"
 
-handleResult :: EvalMonad Result -> IO ()
-handleResult resultM = do
-  result <- runExceptT resultM
+handleResult :: (Either String Result, LetEnv) -> IO ()
+handleResult (result, _) =
   either (\errorMsg -> putStrLn $ "Error: " ++ errorMsg) (ppResult >=> print) result
 
 ppResult :: Result -> IO String

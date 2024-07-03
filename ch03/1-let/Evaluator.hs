@@ -1,17 +1,23 @@
-module Evaluator (evalExpr, Result (..), EvalMonad) where
+module Evaluator (runEvalExpr, Result (..), LetEnv) where
 
 import AST
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.State
 import Env
 import SList
-
-type LetEnv = Env String Result
 
 data Result = RInt Int | RBool Bool | RList [Result]
   deriving (Show)
 
-type EvalMonad = ExceptT String IO
+type LetEnv = Env String Result
+
+type StateMonad = StateT LetEnv IO
+
+type EvalMonad = ExceptT String StateMonad
+
+runEvalExpr :: LetEnv -> Expr -> IO (Either String Result, LetEnv)
+runEvalExpr env expr = runStateT (runExceptT (evalExpr expr)) env
 
 {--
   Helper functions to unwrap result to literal values
@@ -31,36 +37,39 @@ toList r = throwError ("Expression is not a list: " ++ show r)
 {--
   Helper functions to evaluate an Expr and unwrap the result to literal values
 --}
-evalToInt :: LetEnv -> Expr -> EvalMonad Int
-evalToInt env expr = evalExpr env expr >>= toInt
+evalToInt :: Expr -> EvalMonad Int
+evalToInt expr = evalExpr expr >>= toInt
 
-evalToBool :: LetEnv -> Expr -> EvalMonad Bool
-evalToBool env expr = evalExpr env expr >>= toBool
+evalToBool :: Expr -> EvalMonad Bool
+evalToBool expr = evalExpr expr >>= toBool
 
-evalExpr :: LetEnv -> Expr -> EvalMonad Result
-evalExpr env (Literal expr) = liftEither $ evalLiteral env expr
-evalExpr env (Variable expr) = liftEither $ evalVariable env expr
-evalExpr env (ListExpr expr) = evalList env expr
-evalExpr env (LetExpr expr) = evalLetExpr env expr
-evalExpr env (IfExpr expr) = evalIfExpr env expr
-evalExpr env (CondExpr expr) = evalCondExpr env expr
-evalExpr env (UnOpExpr unOp expr) = evalUnOpExpr env unOp expr
-evalExpr env (BinOpExpr binOp expr1 expr2) = evalBinOpExpr env binOp expr1 expr2
-evalExpr env (EffectExpr expr) = evalEffectExpr env expr
+evalExpr :: Expr -> EvalMonad Result
+evalExpr (Literal expr) = liftEither $ evalLiteral expr
+evalExpr (Variable expr) = evalVariable expr
+evalExpr (ListExpr expr) = evalList expr
+evalExpr (LetExpr expr) = evalLetExpr expr
+evalExpr (IfExpr expr) = evalIfExpr expr
+evalExpr (CondExpr expr) = evalCondExpr expr
+evalExpr (UnOpExpr unOp expr) = evalUnOpExpr unOp expr
+evalExpr (BinOpExpr binOp expr1 expr2) = evalBinOpExpr binOp expr1 expr2
+evalExpr (EffectExpr expr) = evalEffectExpr expr
 
-evalLiteral :: LetEnv -> Literal -> Either String Result
-evalLiteral _ (IntLit n) = return (RInt n)
-evalLiteral _ (BoolLit b) = return (RBool b)
+evalLiteral :: Literal -> Either String Result
+evalLiteral (IntLit n) = return (RInt n)
+evalLiteral (BoolLit b) = return (RBool b)
 
-evalVariable :: LetEnv -> Variable -> Either String Result
-evalVariable env (Var var) =
-  maybe (throwError $ "Unbound variable: " ++ var) return (applyEnv env var)
+evalVariable :: Variable -> EvalMonad Result
+evalVariable (Var var) = do
+  env <- lift get -- get the current environment state
+  case applyEnv env var of
+    Just val -> return val
+    Nothing -> throwError $ "Unbound variable: " ++ var
 
-evalList :: LetEnv -> ListExpr -> EvalMonad Result
-evalList _ Empty = return $ RList []
-evalList env (Cons x xs) = do
-  x' <- evalSNode env x
-  xs' <- evalList env xs >>= toList
+evalList :: ListExpr -> EvalMonad Result
+evalList Empty = return $ RList []
+evalList (Cons x xs) = do
+  x' <- evalSNode x
+  xs' <- evalList xs >>= toList
   return $ RList (x' : xs')
 
 -- this represents, as Haskell lists, more closely the "nested structure" derived from the cons construct
@@ -68,50 +77,51 @@ evalList env (Cons x xs) = do
 -- xs' <- evalList env xs
 -- return $ RList (x':[xs'])
 
-evalSNode :: LetEnv -> SNode Expr -> EvalMonad Result
-evalSNode env (Val expr) = evalExpr env expr
-evalSNode env (SList expr) = evalList env expr
+evalSNode :: SNode Expr -> EvalMonad Result
+evalSNode (Val expr) = evalExpr expr
+evalSNode (SList expr) = evalList expr
 
-evalIfExpr :: LetEnv -> IfExpr -> EvalMonad Result
-evalIfExpr env (If ifExpr thenExpr elseExpr) = do
-  cond <- evalToBool env ifExpr
-  if cond then evalExpr env thenExpr else evalExpr env elseExpr
+evalIfExpr :: IfExpr -> EvalMonad Result
+evalIfExpr (If ifExpr thenExpr elseExpr) = do
+  cond <- evalToBool ifExpr
+  if cond then evalExpr thenExpr else evalExpr elseExpr
 
-evalCondExpr :: LetEnv -> CondExpr -> EvalMonad Result
-evalCondExpr _ (Cond []) = throwError "evalCondExpr: none of the predicates evaluated true"
-evalCondExpr env (Cond ((ifExpr, thenExpr) : xs)) = do
-  cond <- evalExpr env ifExpr >>= toBool
-  if cond then evalExpr env thenExpr else evalCondExpr env (Cond xs)
+evalCondExpr :: CondExpr -> EvalMonad Result
+evalCondExpr (Cond []) = throwError "evalCondExpr: none of the predicates evaluated true"
+evalCondExpr (Cond ((ifExpr, thenExpr) : xs)) = do
+  cond <- evalExpr ifExpr >>= toBool
+  if cond then evalExpr thenExpr else evalCondExpr (Cond xs)
 
-evalLetExpr :: LetEnv -> LetExpr -> EvalMonad Result
-evalLetExpr env (Let var assignExpr inExpr) = do
-  assign <- evalExpr env assignExpr
-  evalExpr (extendEnv env var assign) inExpr
+evalLetExpr :: LetExpr -> EvalMonad Result
+evalLetExpr (Let var assignExpr inExpr) = do
+  assign <- evalExpr assignExpr
+  lift $ modify (extendEnv var assign) -- modify the LetEnv state
+  evalExpr inExpr
 
-evalUnOpExpr :: LetEnv -> UnOp -> Expr -> EvalMonad Result
-evalUnOpExpr env Not expr =
-  RBool . not <$> evalToBool env expr
-evalUnOpExpr env IsZero expr =
-  RBool . (==) 0 <$> evalToInt env expr
-evalUnOpExpr env Negate expr =
-  RInt . negate <$> evalToInt env expr
+evalUnOpExpr :: UnOp -> Expr -> EvalMonad Result
+evalUnOpExpr Not expr =
+  RBool . not <$> evalToBool expr
+evalUnOpExpr IsZero expr =
+  RBool . (==) 0 <$> evalToInt expr
+evalUnOpExpr Negate expr =
+  RInt . negate <$> evalToInt expr
 
-evalBinOpExpr :: LetEnv -> BinOp -> Expr -> Expr -> EvalMonad Result
-evalBinOpExpr env Plus = applyBinOp (evalToInt env) (\rand rator -> return $ RInt $ rand + rator)
-evalBinOpExpr env Minus = applyBinOp (evalToInt env) (\rand rator -> return $ RInt $ rand - rator)
-evalBinOpExpr env Times = applyBinOp (evalToInt env) (\rand rator -> return $ RInt $ rand * rator)
-evalBinOpExpr env Div =
+evalBinOpExpr :: BinOp -> Expr -> Expr -> EvalMonad Result
+evalBinOpExpr Plus = applyBinOp evalToInt (\rand rator -> return $ RInt $ rand + rator)
+evalBinOpExpr Minus = applyBinOp evalToInt (\rand rator -> return $ RInt $ rand - rator)
+evalBinOpExpr Times = applyBinOp evalToInt (\rand rator -> return $ RInt $ rand * rator)
+evalBinOpExpr Div =
   applyBinOp
-    (evalToInt env)
+    evalToInt
     ( \rand rator -> do
         when (rator == 0) (throwError "evalBinOpExpr: division by zero in expression")
         return $ RInt (div rand rator)
     )
-evalBinOpExpr env And = applyBinOp (evalToBool env) (\rand rator -> return $ RBool $ rand && rator)
-evalBinOpExpr env Or = applyBinOp (evalToBool env) (\rand rator -> return $ RBool $ rand || rator)
-evalBinOpExpr env Eq = applyBinOp (evalToInt env) (\rand rator -> return $ RBool $ rand == rator)
-evalBinOpExpr env Gt = applyBinOp (evalToInt env) (\rand rator -> return $ RBool $ rand > rator)
-evalBinOpExpr env Lt = applyBinOp (evalToInt env) (\rand rator -> return $ RBool $ rand < rator)
+evalBinOpExpr And = applyBinOp evalToBool (\rand rator -> return $ RBool $ rand && rator)
+evalBinOpExpr Or = applyBinOp evalToBool (\rand rator -> return $ RBool $ rand || rator)
+evalBinOpExpr Eq = applyBinOp evalToInt (\rand rator -> return $ RBool $ rand == rator)
+evalBinOpExpr Gt = applyBinOp evalToInt (\rand rator -> return $ RBool $ rand > rator)
+evalBinOpExpr Lt = applyBinOp evalToInt (\rand rator -> return $ RBool $ rand < rator)
 
 {--
   apllyBinOp expects
@@ -126,12 +136,12 @@ applyBinOp eval apply expr1 expr2 = do
   n2 <- eval expr2
   apply n1 n2
 
-evalEffectExpr :: LetEnv -> EffectExpr -> EvalMonad Result
-evalEffectExpr env (PrintEffect expr) = printEffect env expr
+evalEffectExpr :: EffectExpr -> EvalMonad Result
+evalEffectExpr (PrintEffect expr) = printEffect expr
 
-printEffect :: LetEnv -> Expr -> EvalMonad Result
-printEffect env expr = do
-  e <- evalExpr env expr
+printEffect :: Expr -> EvalMonad Result
+printEffect expr = do
+  e <- evalExpr expr
   liftIO $ print $ showResult e
   return (RInt 1)
 

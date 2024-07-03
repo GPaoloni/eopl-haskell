@@ -5,8 +5,8 @@ type Env a b = [(a, b)]
 emptyEnv :: Eq a => () -> Env a b
 emptyEnv () = []
 
-extendEnv :: Eq a => Env a b -> a -> b -> Env a b
-extendEnv env k v = (k, v) : env
+extendEnv :: Eq a => a -> b -> Env a b -> Env a b
+extendEnv k v env = (k, v) : env
 
 applyEnv :: Eq a => Env a b -> a -> Maybe b
 applyEnv [] var = Nothing
