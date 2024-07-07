@@ -3,6 +3,7 @@ module AST
     Literal (..),
     Variable (..),
     ListExpr,
+    LetVariant (..),
     LetExpr (..),
     IfExpr (..),
     CondExpr (..),
@@ -37,8 +38,11 @@ data Variable where
 
 type ListExpr = SList Expr
 
+data LetVariant = LetRegular | LetStar
+  deriving (Show)
+
 data LetExpr
-  = Let String Expr Expr
+  = Let LetVariant [(String, Expr)] Expr
   deriving (Show)
 
 data IfExpr

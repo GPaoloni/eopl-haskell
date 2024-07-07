@@ -93,10 +93,18 @@ evalCondExpr (Cond ((ifExpr, thenExpr) : xs)) = do
   if cond then evalExpr thenExpr else evalCondExpr (Cond xs)
 
 evalLetExpr :: LetExpr -> EvalMonad Result
-evalLetExpr (Let var assignExpr inExpr) = do
-  assign <- evalExpr assignExpr
-  lift $ modify (extendEnv var assign) -- modify the LetEnv state
+evalLetExpr (Let _ [] inExpr) = evalExpr inExpr
+evalLetExpr (Let LetRegular xs inExpr) = do
+  assigns <- mapM evalAssign xs
+  lift $ modify (extendEnvStar assigns) -- modify the LetEnv state (all updates at the same time)
   evalExpr inExpr
+evalLetExpr (Let LetStar (x : xs) inExpr) = do
+  (var, assign) <- evalAssign x
+  lift $ modify (extendEnv var assign) -- modify the LetEnv state (one update at a time)
+  evalLetExpr (Let LetStar xs inExpr)
+
+evalAssign :: (String, Expr) -> EvalMonad (String, Result)
+evalAssign (var, expr) = (var,) <$> evalExpr expr
 
 evalUnOpExpr :: UnOp -> Expr -> EvalMonad Result
 evalUnOpExpr Not expr =

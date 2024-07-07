@@ -109,7 +109,11 @@ ListNode
   | NonListExpr                           { Val $1 }
 
 LetExpr
-  : let var '=' Expr in Expr              { AST.Let $2 $4 $6 }
+  : let many(LetExprRule) in Expr         { AST.Let AST.LetRegular $2 $4 }
+  | let'*' many(LetExprRule) in Expr      { AST.Let AST.LetStar $3 $5 }
+
+LetExprRule
+  : var '=' Expr                          { ($1, $3) }
 
 IfExpr
   : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
