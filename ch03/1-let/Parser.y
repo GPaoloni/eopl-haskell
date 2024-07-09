@@ -20,6 +20,7 @@ import qualified Data.Char as T
   -- keywords
   let       { TokenLet }
   in        { TokenIn }
+  unpack    { TokenUnpack }
   if        { TokenIf }
   then      { TokenThen }
   else      { TokenElse }
@@ -68,6 +69,7 @@ Expr
   | Variable                              { AST.Variable $1 }
   | ListExpr                              { AST.ListExpr $1 }
   | LetExpr                               { AST.LetExpr $1 }
+  | UnpackExpr                            { AST.UnpackExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
   | CondExpr                              { AST.CondExpr $1 }
   | UnOpExpr                              { $1 }
@@ -83,6 +85,7 @@ NonListExpr
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
   | LetExpr                               { AST.LetExpr $1 }
+  | UnpackExpr                            { AST.UnpackExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
   | CondExpr                              { AST.CondExpr $1 }
   | UnOpExpr                              { $1 }
@@ -114,6 +117,9 @@ LetExpr
 
 LetExprRule
   : var '=' Expr                          { ($1, $3) }
+
+UnpackExpr
+  : unpack many(var) '=' ListExpr in Expr { AST.Unpack ($2, $4) $6 }
 
 IfExpr
   : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
@@ -179,6 +185,7 @@ data Token
   | TokenBoolean Bool
   | TokenLet
   | TokenIn
+  | TokenUnpack
   | TokenIf
   | TokenThen
   | TokenElse
@@ -215,6 +222,7 @@ reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '[', ']', '&', '|', 
 reservedKeywords = [
   "let",
   "in",
+  "unpack",
   "if",
   "then",
   "else",
@@ -253,6 +261,7 @@ lexAlpha cs =
 lexKeyword :: String -> Token
 lexKeyword "let"    = TokenLet
 lexKeyword "in"     = TokenIn
+lexKeyword "unpack" = TokenUnpack
 lexKeyword "if"     = TokenIf
 lexKeyword "then"   = TokenThen
 lexKeyword "else"   = TokenElse

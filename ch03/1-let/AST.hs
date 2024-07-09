@@ -5,6 +5,7 @@ module AST
     ListExpr,
     LetVariant (..),
     LetExpr (..),
+    UnpackExpr (..),
     IfExpr (..),
     CondExpr (..),
     UnOp (..),
@@ -20,6 +21,7 @@ data Expr
   | Variable Variable
   | ListExpr ListExpr
   | LetExpr LetExpr
+  | UnpackExpr UnpackExpr
   | IfExpr IfExpr
   | CondExpr CondExpr
   | UnOpExpr UnOp Expr
@@ -41,12 +43,13 @@ type ListExpr = SList Expr
 data LetVariant = LetRegular | LetStar
   deriving (Show)
 
-data LetExpr
-  = Let LetVariant [(String, Expr)] Expr
+data LetExpr = Let LetVariant [(String, Expr)] Expr
   deriving (Show)
 
-data IfExpr
-  = If Expr Expr Expr
+data UnpackExpr = Unpack ([String], ListExpr) Expr
+  deriving (Show)
+
+data IfExpr = If Expr Expr Expr
   deriving (Show)
 
 newtype CondExpr = Cond [(Expr, Expr)]

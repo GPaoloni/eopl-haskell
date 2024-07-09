@@ -48,6 +48,7 @@ evalExpr (Literal expr) = liftEither $ evalLiteral expr
 evalExpr (Variable expr) = evalVariable expr
 evalExpr (ListExpr expr) = evalList expr
 evalExpr (LetExpr expr) = evalLetExpr expr
+evalExpr (UnpackExpr expr) = evalUnpackExpr expr
 evalExpr (IfExpr expr) = evalIfExpr expr
 evalExpr (CondExpr expr) = evalCondExpr expr
 evalExpr (UnOpExpr unOp expr) = evalUnOpExpr unOp expr
@@ -102,6 +103,21 @@ evalLetExpr (Let LetStar (x : xs) inExpr) = do
   (var, assign) <- evalAssign x
   lift $ modify (extendEnv var assign) -- modify the LetEnv state (one update at a time)
   evalLetExpr (Let LetStar xs inExpr)
+
+evalUnpackExpr :: UnpackExpr -> EvalMonad Result
+evalUnpackExpr (Unpack (xs, listExpr) inExpr) = do
+  assigns <- evalUnpackExpr' xs listExpr
+  lift $ modify (extendEnvStar assigns)
+  evalExpr inExpr
+
+evalUnpackExpr' :: [String] -> ListExpr -> EvalMonad [(String, Result)]
+evalUnpackExpr' [] Empty = return []
+evalUnpackExpr' (_ : _) Empty = throwError "evalUnpackExpr: left-side list too short"
+evalUnpackExpr' [] (Cons _ _) = throwError "evalUnpackExpr: right-side list too short"
+evalUnpackExpr' (var : xs) (Cons nodeExpr listExpr') = do
+  assign <- evalSNode nodeExpr
+  rest <- evalUnpackExpr' xs listExpr'
+  return $ (var, assign) : rest
 
 evalAssign :: (String, Expr) -> EvalMonad (String, Result)
 evalAssign (var, expr) = (var,) <$> evalExpr expr

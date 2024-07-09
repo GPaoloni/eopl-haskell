@@ -19,7 +19,8 @@ main = do
     _ -> putStrLn "Missing inputFilePath, expected as command-line argument"
 
 handleResult :: (Either String Result, LetEnv) -> IO ()
-handleResult (result, _) =
+handleResult (result, env) = do
+  putStrLn $ "Final state:" ++ show env
   either (\errorMsg -> putStrLn $ "Error: " ++ errorMsg) (ppResult >=> print) result
 
 ppResult :: Result -> IO String
