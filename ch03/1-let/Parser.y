@@ -65,22 +65,9 @@ import qualified Data.Char as T
 %%
 
 Expr
-  : Literal                               { AST.Literal $1 }
-  | Variable                              { AST.Variable $1 }
+  : NonListExpr                           { $1 }
   | ListExpr                              { AST.ListExpr $1 }
-  | LetExpr                               { AST.LetExpr $1 }
-  | UnpackExpr                            { AST.UnpackExpr $1 }
-  | IfExpr                                { AST.IfExpr $1 }
-  | CondExpr                              { AST.CondExpr $1 }
-  | UnOpExpr                              { $1 }
-  | BinOpExpr                             { $1 }
-  | EffectExpr                            { AST.EffectExpr $1 }
 
-{- 
-  replica of Expr to sort nested list issues 
-
-  IMPORTANT: keep up to date with Expr
--}
 NonListExpr
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
