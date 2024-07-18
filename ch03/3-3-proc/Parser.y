@@ -9,7 +9,7 @@ import qualified Data.Char as T
 %name calc
 %tokentype { Token }
 %error { parseError }
--- %expect 0
+%expect 0
 
 %token
   -- variables
@@ -26,6 +26,7 @@ import qualified Data.Char as T
   else      { TokenElse }
   cond      { TokenCond }
   end       { TokenEnd }
+  proc      { TokenProc }
   -- unary operators
   isZero    { TokenIsZero }
   minus     { TokenNegate }
@@ -60,15 +61,18 @@ import qualified Data.Char as T
   -- effect
   print     { TokenPrint }
 
-%right else in
+%right in
+%right else
+%nonassoc let in unpack if then else cond end proc int boolean var isZero minus not cons list and or "==" '>' '<' '=' '+' '-' '*' '/' '(' ')' '{' '}' '[' ']' ',' "==>" print
+%nonassoc APP
 
 %%
 
-Expr
+Expr :: { AST.Expr }
   : NonListExpr                           { $1 }
   | ListExpr                              { AST.ListExpr $1 }
 
-NonListExpr
+NonListExpr :: { AST.Expr }
   : Literal                               { AST.Literal $1 }
   | Variable                              { AST.Variable $1 }
   | LetExpr                               { AST.LetExpr $1 }
@@ -78,58 +82,63 @@ NonListExpr
   | UnOpExpr                              { $1 }
   | BinOpExpr                             { $1 }
   | EffectExpr                            { AST.EffectExpr $1 }
+  | ProcDefExpr                           { AST.ProcDefExpr $1 }
+  | ProcApExpr                            { AST.ProcApExpr $1 }
+  | '(' Expr ')'                          { $2 }
 
-Literal
+Literal :: { AST.Literal }
   : int                                   { AST.IntLit $1 }
   | boolean                               { AST.BoolLit $1 }
 
-Variable
+Variable :: { AST.Variable }
   : var                                   { AST.Var $1 }
 
-ListExpr
+ListExpr :: { AST.ListExpr }
   : '[' ']'                               { Empty }
   | cons '(' ListNode ',' ListExpr ')'    { Cons $3 $5  }
   | list '(' SyntaxSugarList ')'          { foldr Cons Empty $3 }
 
-SyntaxSugarList
+SyntaxSugarList :: { [ SNode AST.Expr ] }
   : sepBy(ListNode, ',')                   { $1 }
 
-ListNode
+ListNode :: { SNode AST.Expr }
   : ListExpr                              { SList $1 }
   | NonListExpr                           { Val $1 }
 
-LetExpr
+LetExpr :: { AST.LetExpr }
   : let many(LetExprRule) in Expr         { AST.Let AST.LetRegular $2 $4 }
   | let'*' many(LetExprRule) in Expr      { AST.Let AST.LetStar $3 $5 }
 
-LetExprRule
+LetExprRule :: { ( AST.Identifier, AST.Expr ) }
   : var '=' Expr                          { ($1, $3) }
 
-UnpackExpr
+UnpackExpr :: { AST.UnpackExpr }
   : unpack many(var) '=' ListExpr in Expr { AST.Unpack ($2, $4) $6 }
 
-IfExpr
+IfExpr :: { AST.IfExpr }
   : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
 
-CondExpr
+CondExpr :: { AST.CondExpr }
   : cond many(CondExprRule) end           { AST.Cond $2 }
 
-CondExprRule
+CondExprRule :: { ( AST.Expr, AST.Expr ) }
   : Expr "==>" Expr                       { ($1,  $3) }
 
-UnOpExpr
+-- Could be improved
+UnOpExpr :: { AST.Expr }
   : UnOpExprOp '(' Expr ')'               { AST.UnOpExpr $1 $3 }
 
-UnOpExprOp
+UnOpExprOp :: { AST.UnOp }
   : not                                   { AST.Not }
   | isZero                                { AST.IsZero }
   | minus                                 { AST.Negate }
   -- | '-'                                   { AST.Negate }
 
-BinOpExpr
+-- Could be improved
+BinOpExpr :: { AST.Expr }
   : BinOpExprOp '(' Expr ',' Expr ')'     { AST.BinOpExpr $1 $3 $5 }
 
-BinOpExprOp
+BinOpExprOp :: { AST.BinOp }
   : and                                   { AST.And }
   | or                                    { AST.Or }
   | '+'                                   { AST.Plus }
@@ -140,8 +149,14 @@ BinOpExprOp
   | '>'                                   { AST.Gt }
   | '<'                                   { AST.Lt }
 
-EffectExpr
+EffectExpr :: { AST.EffectExpr }
   : print '(' Expr ')'                    { AST.PrintEffect $3 }
+
+ProcDefExpr :: { AST.ProcDefExpr }
+  : proc '(' var ')' Expr                 { AST.ProcDef $3 $5 }
+
+ProcApExpr :: { AST.ProcApExpr }
+  : Expr Expr %prec APP                             { AST.ProcAp $1 $2 }
 
 -- optional(p)
 --   :                                       { Nothing }
@@ -178,6 +193,7 @@ data Token
   | TokenElse
   | TokenCond
   | TokenEnd
+  | TokenProc
   | TokenIsZero
   | TokenNegate
   | TokenNot
@@ -204,27 +220,6 @@ data Token
   | TokenPrint
   deriving (Show)
 
-reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '[', ']', '&', '|', '!', '<', '>', ',']
-
-reservedKeywords = [
-  "let",
-  "in",
-  "unpack",
-  "if",
-  "then",
-  "else",
-  "cond",
-  "end",
-  "true",
-  "false",
-  "isZero",
-  "not",
-  "minus",
-  "cons",
-  "list",
-  "print"
-  ]
-
 lexer :: String -> [Token]
 lexer [] = []
 lexer (c:cs)
@@ -244,7 +239,27 @@ lexAlpha cs =
       if elem word reservedKeywords 
         then lexKeyword word : lexer rest
         else TokenVar word : lexer rest
-        
+
+reservedKeywords = [
+  "let",
+  "in",
+  "unpack",
+  "if",
+  "then",
+  "else",
+  "cond",
+  "end",
+  "proc",
+  "true",
+  "false",
+  "isZero",
+  "not",
+  "minus",
+  "cons",
+  "list",
+  "print"
+  ]
+
 lexKeyword :: String -> Token
 lexKeyword "let"    = TokenLet
 lexKeyword "in"     = TokenIn
@@ -254,6 +269,7 @@ lexKeyword "then"   = TokenThen
 lexKeyword "else"   = TokenElse
 lexKeyword "cond"   = TokenCond
 lexKeyword "end"    = TokenEnd
+lexKeyword "proc"    = TokenProc
 lexKeyword "true"   = TokenBoolean True
 lexKeyword "false"  = TokenBoolean False
 lexKeyword "isZero" = TokenIsZero
@@ -263,6 +279,8 @@ lexKeyword "cons"   = TokenCons
 lexKeyword "list"   = TokenList
 lexKeyword "print"  = TokenPrint
 lexKeyword (c:_)    = error $ "Unexpected keyword: " ++ [c]
+
+reservedOperators = ['=','+','-','*','/','(',')', '{', '}', '[', ']', '&', '|', '!', '<', '>', ',']
 
 lexOperator :: String -> [Token]
 lexOperator ('=':'=':'>':cs) = TokenLongArrow : lexer cs

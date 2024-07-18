@@ -1,6 +1,7 @@
 module AST
   ( Expr (..),
     Literal (..),
+    Identifier,
     Variable (..),
     ListExpr,
     LetVariant (..),
@@ -11,9 +12,10 @@ module AST
     UnOp (..),
     BinOp (..),
     EffectExpr (..),
+    ProcDefExpr (..),
+    ProcApExpr (..),
   )
 where
-
 import SList
 
 data Expr
@@ -27,6 +29,8 @@ data Expr
   | UnOpExpr UnOp Expr
   | BinOpExpr BinOp Expr Expr
   | EffectExpr EffectExpr
+  | ProcDefExpr ProcDefExpr
+  | ProcApExpr ProcApExpr
   deriving (Show)
 
 data Literal
@@ -34,8 +38,10 @@ data Literal
   | BoolLit Bool
   deriving (Show)
 
+type Identifier = String
+
 data Variable where
-  Var :: String -> Variable
+  Var :: Identifier -> Variable
   deriving (Show)
 
 type ListExpr = SList Expr
@@ -43,10 +49,10 @@ type ListExpr = SList Expr
 data LetVariant = LetRegular | LetStar
   deriving (Show)
 
-data LetExpr = Let LetVariant [(String, Expr)] Expr
+data LetExpr = Let LetVariant [(Identifier, Expr)] Expr
   deriving (Show)
 
-data UnpackExpr = Unpack ([String], ListExpr) Expr
+data UnpackExpr = Unpack ([Identifier], ListExpr) Expr
   deriving (Show)
 
 data IfExpr = If Expr Expr Expr
@@ -75,4 +81,10 @@ data BinOp
 
 data EffectExpr where
   PrintEffect :: Expr -> EffectExpr
+  deriving (Show)
+
+data ProcDefExpr = ProcDef Identifier Expr
+  deriving (Show)
+
+data ProcApExpr = ProcAp Expr Expr
   deriving (Show)
