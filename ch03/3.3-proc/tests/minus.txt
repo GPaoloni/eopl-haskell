@@ -1,0 +1,1 @@
+let x = minus(5) in +(x, minus(10))
