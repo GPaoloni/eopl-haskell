@@ -1,5 +1,5 @@
 let x = 2
-in if isZero(-(x, 1)) then
+in if isZero(-(x, 2)) then
     print(1)
   else
     print(0)

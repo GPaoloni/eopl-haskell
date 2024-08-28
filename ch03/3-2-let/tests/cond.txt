@@ -1,4 +1,4 @@
 cond
-  true ==> 5
+  false ==> 5
   true ==> 10
 end

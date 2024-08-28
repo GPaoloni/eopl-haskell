@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTs #-}
+
 module AST
   ( Expr (..),
     Literal (..),
@@ -12,8 +14,8 @@ module AST
     UnOp (..),
     BinOp (..),
     EffectExpr (..),
-    ProcDefExpr (..),
-    ProcApExpr (..),
+    LambdaExpr (..),
+    LambdaApExpr (..),
   )
 where
 import SList
@@ -29,8 +31,8 @@ data Expr
   | UnOpExpr UnOp Expr
   | BinOpExpr BinOp Expr Expr
   | EffectExpr EffectExpr
-  | ProcDefExpr ProcDefExpr
-  | ProcApExpr ProcApExpr
+  | LambdaExpr LambdaExpr
+  | LambdaApExpr LambdaApExpr
   deriving (Show)
 
 data Literal
@@ -83,8 +85,8 @@ data EffectExpr where
   PrintEffect :: Expr -> EffectExpr
   deriving (Show)
 
-data ProcDefExpr = ProcDef Identifier Expr
+data LambdaExpr = Lambda Identifier Expr
   deriving (Show)
 
-data ProcApExpr = ProcAp Expr Expr
+data LambdaApExpr = LambdaAp Expr Expr
   deriving (Show)

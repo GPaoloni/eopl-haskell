@@ -1,30 +1,40 @@
 # Default values
 ROOT_PATH ?= .
-FILE_NAME ?= main.hs
+FILE_NAME ?= Main.hs
+EXECUTABLE ?= Main
 
 # Compile target
 compile:
 	@echo "Generating parser..."
 	happy $(ROOT_PATH)/Parser.y
 	@echo "\n"
-	@echo "Compiling..."
-	ghc -Wall -i=$(ROOT_PATH) $(ROOT_PATH)/$(FILE_NAME)
+	@echo "Compiling with Cabal..."
+	@cd $(ROOT_PATH) && cabal build
 	@echo "\n"
+
+# Run target
+run:
+	@cd $(ROOT_PATH) && cabal run $(EXECUTABLE) -- $(PWD)/$$PARSE_TARGET
+
+# Build target using Cabal
+build:
+	@cd $(ROOT_PATH) && cabal build
+
+# Test target using Cabal
+test:
+	@cd $(ROOT_PATH) && cabal test --test-option=--color
 
 # Clean target
 clean:
-	rm -f *.o *.hi $(ROOT_PATH)/*.o $(ROOT_PATH)/*.hi $(basename $(FILE_NAME)) $(ROOT_PATH)/Parser.hs
+	@cd $(ROOT_PATH) && cabal clean
+# @echo "Removing generated files"
+# @rm -f *.o *.hi $(ROOT_PATH)/*.o $(ROOT_PATH)/*.hi $(basename $(FILE_NAME)) $(ROOT_PATH)/Parser.hs
+
 
 # Help target
 help:
 	@echo "Usage:"
-	@echo "  make compile ROOT_PATH=<path> FILE_NAME=<file>"
-	@echo "  make clean ROOT_PATH=<path> FILE_NAME=<file>"
-	@echo "  make help"
-	@echo ""
-	@echo "Parameters:"
-	@echo "  ROOT_PATH : The root path for the -i flag (default: .)"
-	@echo "  FILE_NAME : The name of the Haskell file to compile (default: main.hs)"
+	@echo "  TO-DO"
 
 # Set the default target
 .DEFAULT_GOAL := compile

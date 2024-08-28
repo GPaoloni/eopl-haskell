@@ -61,9 +61,8 @@ import qualified Data.Char as T
   -- effect
   print     { TokenPrint }
 
-%right in
-%right else
-%nonassoc let in unpack if then else cond end proc int boolean var isZero minus not cons list and or "==" '>' '<' '=' '+' '-' '*' '/' '(' ')' '{' '}' '[' ']' ',' "==>" print
+%right else in
+%nonassoc int boolean var '=' '(' ')' '{' '}' '[' ']'
 %nonassoc APP
 
 %%
@@ -73,8 +72,8 @@ Expr :: { AST.Expr }
   | ListExpr                              { AST.ListExpr $1 }
 
 NonListExpr :: { AST.Expr }
-  : Literal                               { AST.Literal $1 }
-  | Variable                              { AST.Variable $1 }
+  : Application %prec APP                 { $1 }
+  | LambdaExpr                            { AST.LambdaExpr $1 }
   | LetExpr                               { AST.LetExpr $1 }
   | UnpackExpr                            { AST.UnpackExpr $1 }
   | IfExpr                                { AST.IfExpr $1 }
@@ -82,9 +81,18 @@ NonListExpr :: { AST.Expr }
   | UnOpExpr                              { $1 }
   | BinOpExpr                             { $1 }
   | EffectExpr                            { AST.EffectExpr $1 }
-  | ProcDefExpr                           { AST.ProcDefExpr $1 }
-  | ProcApExpr                            { AST.ProcApExpr $1 }
+
+Application :: { AST.Expr }
+  : Atom                                  { $1 }
+  | Application Atom                      { AST.LambdaApExpr (AST.LambdaAp $1 $2) }
+
+Atom :: { AST.Expr }
+  : Literal                               { AST.Literal $1 }
+  | Variable                              { AST.Variable $1 }
   | '(' Expr ')'                          { $2 }
+
+LambdaExpr :: { AST.LambdaExpr }
+  : proc '(' var ')' Expr                 { AST.Lambda $3 $5 }
 
 Literal :: { AST.Literal }
   : int                                   { AST.IntLit $1 }
@@ -121,6 +129,10 @@ IfExpr :: { AST.IfExpr }
 CondExpr :: { AST.CondExpr }
   : cond many(CondExprRule) end           { AST.Cond $2 }
 
+-- CondExprRules :: { [( AST.Expr, AST.Expr )] }
+--   : CondExprRule                          { [$1] }
+--   | CondExprRule ',' CondExprRules        { $1 : $3 }
+
 CondExprRule :: { ( AST.Expr, AST.Expr ) }
   : Expr "==>" Expr                       { ($1,  $3) }
 
@@ -151,12 +163,6 @@ BinOpExprOp :: { AST.BinOp }
 
 EffectExpr :: { AST.EffectExpr }
   : print '(' Expr ')'                    { AST.PrintEffect $3 }
-
-ProcDefExpr :: { AST.ProcDefExpr }
-  : proc '(' var ')' Expr                 { AST.ProcDef $3 $5 }
-
-ProcApExpr :: { AST.ProcApExpr }
-  : Expr Expr %prec APP                             { AST.ProcAp $1 $2 }
 
 -- optional(p)
 --   :                                       { Nothing }

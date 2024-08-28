@@ -1,0 +1,60 @@
+name:                proc
+version:             0.1.0.0
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:  Parser
+                    , Evaluator
+                    , AST
+                    , Env
+                    , Lib
+                    , SList
+  build-depends:      base >= 4.7 && < 5
+                    , array
+                    , mtl
+  hs-source-dirs:     src
+                    -- , .
+                    , ..
+  default-language:   Haskell2010
+
+executable proc
+  main-is:            Main.hs
+  other-modules:      Parser
+                    , Evaluator
+                    , AST
+                    , Env
+                    , Lib
+                    , SList
+  build-depends:      base >= 4.7 && < 5
+                    , proc
+                    , array
+                    , mtl
+  hs-source-dirs:     app
+                    , src
+                    -- , .
+                    , ..
+  default-language:   Haskell2010
+
+test-suite proc-test
+  type:               exitcode-stdio-1.0
+  main-is:            Spec.hs
+  other-modules:      Parser
+                    , Evaluator
+                    , AST
+                    , Env
+                    , Lib
+                    , SList
+  build-depends:      base >= 4.7 && < 5
+                    , proc
+                    , hspec >= 2.7
+                    , directory
+                    , filepath
+                    , array
+                    , mtl
+                    , text
+  hs-source-dirs:     tests
+                    , src
+                    -- ,  .
+                    , ..
+  default-language:   Haskell2010

@@ -1,4 +1,0 @@
-cond
-  true ==> 5
-  true ==> 10
-end

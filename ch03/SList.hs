@@ -1,11 +1,12 @@
 module SList (SList(..), SNode(..)) where
-import Data.Kind (Type)
+-- import Data.Kind (Type)
 
-type SList :: Type -> Type
+-- type SList :: * -> *
+-- type SNode :: Type -> Type
 data SList a = Empty | Cons (SNode a) (SList a)
   deriving (Show)
 
-type SNode :: Type -> Type
+-- type SNode :: Type -> Type
 data SNode a = Val a | SList (SList a)
   deriving (Show)
 

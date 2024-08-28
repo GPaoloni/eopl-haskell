@@ -1,3 +1,5 @@
+{-# LANGUAGE TupleSections #-}
+
 module Evaluator (runEvalExpr, Result (..), LetEnv) where
 
 import AST
@@ -7,7 +9,11 @@ import Control.Monad.State
 import Env
 import SList
 
-data Result = RInt Int | RBool Bool | RList [Result]
+data Result
+  = RInt Int
+  | RBool Bool
+  | RList [Result]
+  | RClosure Identifier Expr LetEnv
   deriving (Show)
 
 type LetEnv = Env String Result
@@ -54,6 +60,8 @@ evalExpr (CondExpr expr) = evalCondExpr expr
 evalExpr (UnOpExpr unOp expr) = evalUnOpExpr unOp expr
 evalExpr (BinOpExpr binOp expr1 expr2) = evalBinOpExpr binOp expr1 expr2
 evalExpr (EffectExpr expr) = evalEffectExpr expr
+evalExpr (LambdaExpr expr) = evalLambdaExpr expr
+evalExpr (LambdaApExpr expr) = evalLambdaApExpr expr
 
 evalLiteral :: Literal -> Either String Result
 evalLiteral (IntLit n) = return (RInt n)
@@ -169,7 +177,28 @@ printEffect expr = do
   liftIO $ print $ showResult e
   return (RInt 1)
 
+evalLambdaExpr :: LambdaExpr -> EvalMonad Result
+evalLambdaExpr (Lambda var body) = do
+  env <- lift get
+  return $ RClosure var body env
+
+evalLambdaApExpr :: LambdaApExpr -> EvalMonad Result
+evalLambdaApExpr (LambdaAp funcExpr argExpr) = do
+  func <- evalExpr funcExpr
+  case func of
+    RClosure var body capturedEnv -> do
+      arg <- evalExpr argExpr
+      currentEnv <- lift get
+      lift $ put capturedEnv -- Restore the captured env
+      lift $ modify (extendEnv var arg) -- Bind the argument
+      result <- evalExpr body
+      lift $ put currentEnv -- Restore the current env
+      return result
+    _ -> throwError "Attempt to apply a non-function"
+
 showResult :: Result -> String
 showResult (RInt n) = show n
 showResult (RBool b) = show b
 showResult (RList xs) = show xs
+showResult (RClosure idx expr env) =
+  "function binding" ++ show idx ++ "\n to expr " ++ show expr ++ "\n with env " ++ show env
