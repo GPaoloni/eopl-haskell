@@ -11,7 +11,5 @@ cons (
     )
   )
 )
-
 ==========
-
-[ 1, [ 1 ], 1 ]
+RList [RInt 1,RList [RInt 1],RInt 1]

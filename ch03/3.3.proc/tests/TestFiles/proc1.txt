@@ -1,0 +1,3 @@
+let f = proc (x) -(x,11) in f
+==========
+RClosure "x" (BinOpExpr Minus (Variable (Var "x")) (Literal (IntLit 11))) []

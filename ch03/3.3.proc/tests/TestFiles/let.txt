@@ -1,7 +1,5 @@
 let x = 1 in
   let y = 5 in
     -(y, x)
-
 ==========
-
-4
+RInt 4

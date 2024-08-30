@@ -61,7 +61,7 @@ import qualified Data.Char as T
   -- effect
   print     { TokenPrint }
 
-%right else in
+%right else in cond
 %nonassoc int boolean var '=' '(' ')' '{' '}' '[' ']'
 %nonassoc APP
 
@@ -127,39 +127,27 @@ IfExpr :: { AST.IfExpr }
   : if Expr then Expr else Expr           { AST.If $2 $4 $6 }
 
 CondExpr :: { AST.CondExpr }
-  : cond many(CondExprRule) end           { AST.Cond $2 }
-
--- CondExprRules :: { [( AST.Expr, AST.Expr )] }
---   : CondExprRule                          { [$1] }
---   | CondExprRule ',' CondExprRules        { $1 : $3 }
+  : cond sepBy(CondExprRule, ',') end     { AST.Cond $2 }
 
 CondExprRule :: { ( AST.Expr, AST.Expr ) }
   : Expr "==>" Expr                       { ($1,  $3) }
 
--- Could be improved
 UnOpExpr :: { AST.Expr }
-  : UnOpExprOp '(' Expr ')'               { AST.UnOpExpr $1 $3 }
+  : not '(' Expr ')'                      { AST.UnOpExpr AST.Not $3 }
+  | isZero '(' Expr ')'                   { AST.UnOpExpr AST.IsZero $3 }
+  | minus '(' Expr ')'                    { AST.UnOpExpr AST.Negate $3 }
+  | '-' '(' Expr ')'                      { AST.UnOpExpr AST.Negate $3 }
 
-UnOpExprOp :: { AST.UnOp }
-  : not                                   { AST.Not }
-  | isZero                                { AST.IsZero }
-  | minus                                 { AST.Negate }
-  -- | '-'                                   { AST.Negate }
-
--- Could be improved
 BinOpExpr :: { AST.Expr }
-  : BinOpExprOp '(' Expr ',' Expr ')'     { AST.BinOpExpr $1 $3 $5 }
-
-BinOpExprOp :: { AST.BinOp }
-  : and                                   { AST.And }
-  | or                                    { AST.Or }
-  | '+'                                   { AST.Plus }
-  | '-'                                   { AST.Minus }
-  | '*'                                   { AST.Times }
-  | '/'                                   { AST.Div }
-  | "=="                                  { AST.Eq }
-  | '>'                                   { AST.Gt }
-  | '<'                                   { AST.Lt }
+  : and '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.And $3 $5 }
+  | or '(' Expr ',' Expr ')'              { AST.BinOpExpr AST.Or $3 $5 }
+  | '+' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Plus $3 $5 }
+  | '-' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Minus $3 $5 }
+  | '*' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Times $3 $5 }
+  | '/' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Div $3 $5 }
+  | "==" '(' Expr ',' Expr ')'            { AST.BinOpExpr AST.Eq $3 $5 }
+  | '>' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Gt $3 $5 }
+  | '<' '(' Expr ',' Expr ')'             { AST.BinOpExpr AST.Lt $3 $5 }
 
 EffectExpr :: { AST.EffectExpr }
   : print '(' Expr ')'                    { AST.PrintEffect $3 }

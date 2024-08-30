@@ -1,9 +1,9 @@
+import Control.Monad ((>=>))
 import Env (emptyEnv)
 import Evaluator
-import Parser (parseExpr)
 import Lib (parseAndEvaluate)
+import Parser (parseExpr)
 import System.Environment (getArgs)
-import Control.Monad ((>=>))
 
 main :: IO ()
 main = do
@@ -11,11 +11,10 @@ main = do
   case args of
     [inputFilePath] -> do
       input <- readFile inputFilePath
-      -- let parsed = parseExpr input
-      -- print parsed
-      -- print $ evalExpr (emptyEnv ()) parsed
-      -- result <- runEvalExpr (emptyEnv ()) parsed 
-      result <- parseAndEvaluate input 
+      let parsed = parseExpr input
+      print parsed
+      result <- runEvalExpr (emptyEnv ()) parsed
+      -- result <- parseAndEvaluate input
       handleResult result
     _ -> putStrLn "Missing inputFilePath, expected as command-line argument"
 
@@ -38,3 +37,4 @@ ppResult (RList list) = ppList' list
       x' <- ppResult x
       xs' <- ppList xs
       return $ x' ++ ", " ++ xs'
+ppResult (RClosure var body env) = return $ "closure: " ++ " var: " ++ show var ++ " body: " ++ show body ++ " env: " ++ show env

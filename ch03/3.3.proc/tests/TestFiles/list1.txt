@@ -8,7 +8,5 @@ cons (
   ),
   []
 )
-
 ==========
-
-[ [ [ [ 1 ] ] ] ]
+RList [RList [RList [RList [RInt 1]]]]

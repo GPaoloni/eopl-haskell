@@ -2,11 +2,12 @@
 ROOT_PATH ?= .
 FILE_NAME ?= Main.hs
 EXECUTABLE ?= Main
+PARSER_LOCATION ?= src
 
 # Compile target
 compile:
 	@echo "Generating parser..."
-	happy $(ROOT_PATH)/Parser.y
+	@cd $(ROOT_PATH) && happy $(PARSER_LOCATION)/Parser.y
 	@echo "\n"
 	@echo "Compiling with Cabal..."
 	@cd $(ROOT_PATH) && cabal build
@@ -19,6 +20,8 @@ run:
 # Build target using Cabal
 build:
 	@cd $(ROOT_PATH) && cabal build
+
+buildrun: compile run
 
 # Test target using Cabal
 test:
